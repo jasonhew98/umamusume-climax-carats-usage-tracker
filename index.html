@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carat Usage Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        h1 { color: #333; }
+        form { margin-bottom: 20px; }
+        input[type="number"] { padding: 10px; width: 200px; }
+        input[type="submit"] { padding: 10px 15px; cursor: pointer; }
+        .entry { margin: 5px 0; }
+        .entry-list { margin-top: 20px; }
+        .overall { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Carat Usage Tracker</h1>
+    <form id="caratForm">
+        <input type="number" id="caratInput" placeholder="Enter carats used" required>
+        <input type="submit" value="Add Entry">
+    </form>
+    <div class="overall">
+        <h2>Total Carats Used: <span id="totalCarats">0</span></h2>
+        <h2>Average Daily Usage: <span id="avgDaily">0</span></h2>
+        <h2>Average Monthly Usage: <span id="avgMonthly">0</span></h2>
+    </div>
+    <div class="entry-list" id="entryList"></div>
+    <script>
+        const form = document.getElementById('caratForm');
+        const caratInput = document.getElementById('caratInput');
+        const totalCaratsDisplay = document.getElementById('totalCarats');
+        const avgDailyDisplay = document.getElementById('avgDaily');
+        const avgMonthlyDisplay = document.getElementById('avgMonthly');
+        const entryList = document.getElementById('entryList');
+        let entries = JSON.parse(localStorage.getItem('caratEntries')) || [];
+
+        function updateDisplay() {
+            const totalCarats = entries.reduce((acc, entry) => acc + entry.amount, 0);
+            totalCaratsDisplay.textContent = totalCarats;
+            if (entries.length > 0) {
+                const totalDays = (new Date() - new Date(entries[0].date)) / (1000 * 60 * 60 * 24);
+                avgDailyDisplay.textContent = (totalCarats / totalDays).toFixed(2);
+                const totalMonths = totalDays / 30;
+                avgMonthlyDisplay.textContent = (totalCarats / totalMonths).toFixed(2);
+            }
+            entryList.innerHTML = '';
+            entries.forEach(entry => {
+                const div = document.createElement('div');
+                div.className = 'entry';
+                div.textContent = `${entry.date}: ${entry.amount} carats`;
+                entryList.appendChild(div);
+            });
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const amount = parseInt(caratInput.value);
+            const date = new Date().toISOString();
+            entries.push({ amount, date });
+            localStorage.setItem('caratEntries', JSON.stringify(entries));
+            caratInput.value = '';
+            updateDisplay();
+        });
+
+        updateDisplay();
+    </script>
+</body>
+</html>
