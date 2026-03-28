@@ -2,61 +2,166 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Carat Usage Tracker</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;max-width:900px;margin:24px auto;padding:0 16px;color:#222}
-    header{display:flex;align-items:center;justify-content:space-between}
-    h1{font-size:1.25rem;margin:0}
-    form{margin-top:16px;display:flex;gap:8px;align-items:center}
-    input[type=number]{padding:8px;width:160px;border:1px solid #ccc;border-radius:6px}
-    button{padding:8px 12px;border:none;background:#0b84ff;color:#fff;border-radius:6px;cursor:pointer}
-    button.secondary{background:#666;color:#fff}
-    .total{margin-top:20px;font-size:1.1rem}
-    .entries{margin-top:18px}
-    .entry{padding:8px;border-radius:6px;background:#fff;border:1px solid #e6e6e6;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-    .muted{color:#666;font-size:0.9rem}
-    .actions{display:flex;gap:8px}
-    .small{padding:6px 8px;font-size:0.9rem}
+    :root {
+      --bg: #f7f7f8;
+      --card: #ffffff;
+      --muted: #666666;
+      --accent: #0b84ff;
+      --border: #e6e6e6;
+      --radius: 8px;
+      --max-width: 900px;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: #222;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: var(--max-width);
+      margin: 28px auto;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    form {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input[type="number"] {
+      padding: 10px 12px;
+      width: 160px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .total {
+      margin-top: 20px;
+      font-size: 1.1rem;
+    }
+
+    .entries {
+      margin-top: 18px;
+    }
+
+    .entry {
+      padding: 12px;
+      border-radius: var(--radius);
+      background: var(--card);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .entry .meta {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .small {
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      border-radius: 6px;
+    }
+
+    @media (max-width: 520px) {
+      input[type="number"] { width: 100%; }
+      form { flex-direction: column; align-items: stretch; }
+      .entry { flex-direction: column; align-items: flex-start; }
+      .actions { align-self: stretch; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Carat Usage Tracker</h1>
-    <div class="muted">No backend — data saved in your browser</div>
-  </header>
+  <div class="container">
+    <header>
+      <h1>Carat Usage Tracker</h1>
+    </header>
 
-  <form id="caratForm">
-    <input id="caratInput" type="number" placeholder="Enter carats used" min="1" required />
-    <button type="submit">Add</button>
-    <button id="clearBtn" type="button" class="secondary small">Clear all</button>
-  </form>
+    <form id="caratForm">
+      <input id="caratInput" type="number" placeholder="Enter carats used" min="1" required />
+      <button type="submit">Add</button>
+    </form>
 
-  <div class="total">Total Carats Used: <strong id="totalCarats">0</strong></div>
+    <div class="total">Total Carats Used: <strong id="totalCarats">0</strong></div>
 
-  <div class="entries" id="entryList"></div>
+    <div class="entries" id="entryList"></div>
+  </div>
 
   <script>
+    // Elements
     const form = document.getElementById('caratForm');
     const caratInput = document.getElementById('caratInput');
     const totalCaratsDisplay = document.getElementById('totalCarats');
     const entryList = document.getElementById('entryList');
-    const clearBtn = document.getElementById('clearBtn');
+
+    // Key in localStorage
+    const STORAGE_KEY = 'caratEntries';
 
     // Load entries from localStorage (array of { amount: number, date: ISO })
     let entries = [];
     try {
-      entries = JSON.parse(localStorage.getItem('caratEntries')) || [];
+      const raw = localStorage.getItem(STORAGE_KEY);
+      entries = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(entries)) entries = [];
     } catch (e) {
       entries = [];
+      console.error('Failed to parse stored entries', e);
     }
 
     function save() {
-      localStorage.setItem('caratEntries', JSON.stringify(entries));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      } catch (e) {
+        console.error('Failed to save entries', e);
+      }
     }
 
     function formatDateToLocal(iso) {
-      // Return a locale-aware string in the user's local timezone
+      // Use toLocaleString so the displayed date/time is in the user's local timezone
       try {
         const d = new Date(iso);
         return d.toLocaleString();
@@ -65,34 +170,48 @@
       }
     }
 
+    function renderEmpty() {
+      entryList.innerHTML = '';
+      const p = document.createElement('div');
+      p.className = 'note';
+      p.textContent = 'No entries yet.';
+      entryList.appendChild(p);
+    }
+
     function updateDisplay() {
+      // Calculate total
       const total = entries.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
       totalCaratsDisplay.textContent = total;
 
-      entryList.innerHTML = '';
-      if (entries.length === 0) {
-        const p = document.createElement('div');
-        p.className = 'muted';
-        p.textContent = 'No entries yet.';
-        entryList.appendChild(p);
+      // Render entries (newest first)
+      if (!entries.length) {
+        renderEmpty();
         return;
       }
 
-      // Show newest first
+      entryList.innerHTML = '';
       entries.slice().reverse().forEach((entry, reversedIndex) => {
         const originalIndex = entries.length - 1 - reversedIndex;
-        const div = document.createElement('div');
-        div.className = 'entry';
+
+        const card = document.createElement('div');
+        card.className = 'entry';
 
         const left = document.createElement('div');
-        left.innerHTML = `<div><strong>${entry.amount} carats</strong></div><div class="muted">${formatDateToLocal(entry.date)}</div>`;
+        const amount = document.createElement('div');
+        amount.innerHTML = `<strong>${entry.amount} carats</strong>`;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = formatDateToLocal(entry.date);
+        left.appendChild(amount);
+        left.appendChild(meta);
 
         const actions = document.createElement('div');
         actions.className = 'actions';
 
         const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'small';
         del.textContent = 'Delete';
-        del.className = 'small secondary';
         del.addEventListener('click', () => {
           entries.splice(originalIndex, 1);
           save();
@@ -100,9 +219,10 @@
         });
 
         actions.appendChild(del);
-        div.appendChild(left);
-        div.appendChild(actions);
-        entryList.appendChild(div);
+
+        card.appendChild(left);
+        card.appendChild(actions);
+        entryList.appendChild(card);
       });
     }
 
@@ -114,13 +234,6 @@
       entries.push({ amount: value, date });
       save();
       caratInput.value = '';
-      updateDisplay();
-    });
-
-    clearBtn.addEventListener('click', () => {
-      if (!confirm('Clear all entries? This cannot be undone.')) return;
-      entries = [];
-      save();
       updateDisplay();
     });
 
