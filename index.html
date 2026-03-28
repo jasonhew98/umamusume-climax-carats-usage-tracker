@@ -10,9 +10,13 @@
       --card: #ffffff;
       --muted: #666666;
       --accent: #0b84ff;
+      --accent-contrast: #ffffff;
       --border: #e6e6e6;
-      --radius: 8px;
+      --radius: 12px;
       --max-width: 900px;
+      --option-bg: #ffffff;
+      --option-border: #e6e6e6;
+      --option-hover: #f0f8ff;
     }
 
     html, body {
@@ -46,21 +50,60 @@
     form {
       margin-top: 16px;
       display: flex;
-      gap: 8px;
+      gap: 12px;
       align-items: center;
       flex-wrap: wrap;
     }
 
-    input[type="number"] {
-      padding: 10px 12px;
-      width: 160px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 1rem;
-      box-sizing: border-box;
+    .options {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
-    button {
+    /* Option cards (act like radios) */
+    .option {
+      appearance: none;
+      -webkit-appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
+      height: 56px;
+      padding: 8px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--option-border);
+      background: var(--option-bg);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+      cursor: pointer;
+      font-size: 1rem;
+      color: #111;
+      transition: transform .06s ease, box-shadow .06s ease, border-color .06s ease;
+      user-select: none;
+    }
+
+    .option:hover {
+      background: var(--option-hover);
+      transform: translateY(-2px);
+      border-color: #cfe9ff;
+    }
+
+    .option:focus {
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(11,132,255,0.12);
+      transform: translateY(-2px);
+    }
+
+    .option[aria-checked="true"], .option.selected {
+      background: var(--accent);
+      color: var(--accent-contrast);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(11,132,255,0.12);
+    }
+
+    button[type="submit"] {
       padding: 10px 14px;
       border: none;
       background: var(--accent);
@@ -107,8 +150,11 @@
       border-radius: 6px;
     }
 
+    .note { color: var(--muted); }
+
     @media (max-width: 520px) {
-      input[type="number"] { width: 100%; }
+      .options { width: 100%; gap: 8px; }
+      .option { flex: 1 1 48%; min-width: 0; }
       form { flex-direction: column; align-items: stretch; }
       .entry { flex-direction: column; align-items: flex-start; }
       .actions { align-self: stretch; }
@@ -121,8 +167,19 @@
       <h1>Carat Usage Tracker</h1>
     </header>
 
-    <form id="caratForm">
-      <input id="caratInput" type="number" placeholder="Enter carats used" min="1" required />
+    <form id="caratForm" aria-labelledby="carat-label">
+      <div id="carat-label" style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;">
+        Choose carats to use
+      </div>
+
+      <div class="options" role="radiogroup" aria-labelledby="carat-label">
+        <button type="button" class="option" data-value="10" role="radio" aria-checked="false">10</button>
+        <button type="button" class="option" data-value="20" role="radio" aria-checked="false">20</button>
+        <button type="button" class="option" data-value="30" role="radio" aria-checked="false">30</button>
+        <button type="button" class="option" data-value="40" role="radio" aria-checked="false">40</button>
+        <button type="button" class="option" data-value="50" role="radio" aria-checked="false">50</button>
+      </div>
+
       <button type="submit">Add</button>
     </form>
 
@@ -134,12 +191,18 @@
   <script>
     // Elements
     const form = document.getElementById('caratForm');
-    const caratInput = document.getElementById('caratInput');
+    const optionButtons = Array.from(document.querySelectorAll('.option'));
     const totalCaratsDisplay = document.getElementById('totalCarats');
     const entryList = document.getElementById('entryList');
 
     // Key in localStorage
     const STORAGE_KEY = 'caratEntries';
+
+    // Allowed values (source of truth)
+    const ALLOWED = [10,20,30,40,50];
+
+    // Track selected value (null when none)
+    let selectedValue = null;
 
     // Load entries from localStorage (array of { amount: number, date: ISO })
     let entries = [];
@@ -161,7 +224,6 @@
     }
 
     function formatDateToLocal(iso) {
-      // Use toLocaleString so the displayed date/time is in the user's local timezone
       try {
         const d = new Date(iso);
         return d.toLocaleString();
@@ -226,14 +288,78 @@
       });
     }
 
+    // Option handling
+    function clearSelection() {
+      selectedValue = null;
+      optionButtons.forEach(btn => {
+        btn.classList.remove('selected');
+        btn.setAttribute('aria-checked', 'false');
+        btn.blur && btn.blur();
+      });
+    }
+
+    function setSelection(value) {
+      selectedValue = value;
+      optionButtons.forEach(btn => {
+        const v = parseInt(btn.dataset.value, 10);
+        if (v === value) {
+          btn.classList.add('selected');
+          btn.setAttribute('aria-checked', 'true');
+          btn.focus();
+        } else {
+          btn.classList.remove('selected');
+          btn.setAttribute('aria-checked', 'false');
+        }
+      });
+    }
+
+    optionButtons.forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        const v = parseInt(btn.dataset.value, 10);
+        if (selectedValue === v) {
+          // If already selected, toggle off (optional) — here we keep it selected
+          // clearSelection();
+          setSelection(v);
+        } else {
+          setSelection(v);
+        }
+      });
+
+      // keyboard support: Space/Enter to select
+      btn.addEventListener('keydown', (ev) => {
+        if (ev.key === ' ' || ev.key === 'Enter') {
+          ev.preventDefault();
+          btn.click();
+        }
+        // Arrow navigation (Left/Up, Right/Down)
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') {
+          ev.preventDefault();
+          const next = optionButtons[(idx + 1) % optionButtons.length];
+          next.focus();
+        } else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') {
+          ev.preventDefault();
+          const prev = optionButtons[(idx - 1 + optionButtons.length) % optionButtons.length];
+          prev.focus();
+        }
+      });
+    });
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const value = parseInt(caratInput.value, 10);
-      if (Number.isNaN(value) || value <= 0) return;
+      if (selectedValue === null) {
+        alert('Please select 10, 20, 30, 40, or 50 carats.');
+        return;
+      }
+      const value = Number(selectedValue);
+      if (!ALLOWED.includes(value)) {
+        alert('Invalid selection. Please pick one of the visible options.');
+        return;
+      }
       const date = new Date().toISOString();
       entries.push({ amount: value, date });
       save();
-      caratInput.value = '';
+      // Reset selection
+      clearSelection();
       updateDisplay();
     });
 
