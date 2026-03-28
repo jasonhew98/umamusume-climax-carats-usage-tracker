@@ -1,70 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carat Usage Tracker</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        h1 { color: #333; }
-        form { margin-bottom: 20px; }
-        input[type="number"] { padding: 10px; width: 200px; }
-        input[type="submit"] { padding: 10px 15px; cursor: pointer; }
-        .entry { margin: 5px 0; }
-        .entry-list { margin-top: 20px; }
-        .overall { margin-top: 20px; }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Carat Usage Tracker</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;max-width:900px;margin:24px auto;padding:0 16px;color:#222}
+    header{display:flex;align-items:center;justify-content:space-between}
+    h1{font-size:1.25rem;margin:0}
+    form{margin-top:16px;display:flex;gap:8px;align-items:center}
+    input[type=number]{padding:8px;width:160px;border:1px solid #ccc;border-radius:6px}
+    button{padding:8px 12px;border:none;background:#0b84ff;color:#fff;border-radius:6px;cursor:pointer}
+    button.secondary{background:#666;color:#fff}
+    .total{margin-top:20px;font-size:1.1rem}
+    .entries{margin-top:18px}
+    .entry{padding:8px;border-radius:6px;background:#fff;border:1px solid #e6e6e6;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .muted{color:#666;font-size:0.9rem}
+    .actions{display:flex;gap:8px}
+    .small{padding:6px 8px;font-size:0.9rem}
+  </style>
 </head>
 <body>
+  <header>
     <h1>Carat Usage Tracker</h1>
-    <form id="caratForm">
-        <input type="number" id="caratInput" placeholder="Enter carats used" required>
-        <input type="submit" value="Add Entry">
-    </form>
-    <div class="overall">
-        <h2>Total Carats Used: <span id="totalCarats">0</span></h2>
-        <h2>Average Daily Usage: <span id="avgDaily">0</span></h2>
-        <h2>Average Monthly Usage: <span id="avgMonthly">0</span></h2>
-    </div>
-    <div class="entry-list" id="entryList"></div>
-    <script>
-        const form = document.getElementById('caratForm');
-        const caratInput = document.getElementById('caratInput');
-        const totalCaratsDisplay = document.getElementById('totalCarats');
-        const avgDailyDisplay = document.getElementById('avgDaily');
-        const avgMonthlyDisplay = document.getElementById('avgMonthly');
-        const entryList = document.getElementById('entryList');
-        let entries = JSON.parse(localStorage.getItem('caratEntries')) || [];
+    <div class="muted">No backend — data saved in your browser</div>
+  </header>
 
-        function updateDisplay() {
-            const totalCarats = entries.reduce((acc, entry) => acc + entry.amount, 0);
-            totalCaratsDisplay.textContent = totalCarats;
-            if (entries.length > 0) {
-                const totalDays = (new Date() - new Date(entries[0].date)) / (1000 * 60 * 60 * 24);
-                avgDailyDisplay.textContent = (totalCarats / totalDays).toFixed(2);
-                const totalMonths = totalDays / 30;
-                avgMonthlyDisplay.textContent = (totalCarats / totalMonths).toFixed(2);
-            }
-            entryList.innerHTML = '';
-            entries.forEach(entry => {
-                const div = document.createElement('div');
-                div.className = 'entry';
-                div.textContent = `${entry.date}: ${entry.amount} carats`;
-                entryList.appendChild(div);
-            });
-        }
+  <form id="caratForm">
+    <input id="caratInput" type="number" placeholder="Enter carats used" min="1" required />
+    <button type="submit">Add</button>
+    <button id="clearBtn" type="button" class="secondary small">Clear all</button>
+  </form>
 
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const amount = parseInt(caratInput.value);
-            const date = new Date().toISOString();
-            entries.push({ amount, date });
-            localStorage.setItem('caratEntries', JSON.stringify(entries));
-            caratInput.value = '';
-            updateDisplay();
+  <div class="total">Total Carats Used: <strong id="totalCarats">0</strong></div>
+
+  <div class="entries" id="entryList"></div>
+
+  <script>
+    const form = document.getElementById('caratForm');
+    const caratInput = document.getElementById('caratInput');
+    const totalCaratsDisplay = document.getElementById('totalCarats');
+    const entryList = document.getElementById('entryList');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // Load entries from localStorage (array of { amount: number, date: ISO })
+    let entries = [];
+    try {
+      entries = JSON.parse(localStorage.getItem('caratEntries')) || [];
+    } catch (e) {
+      entries = [];
+    }
+
+    function save() {
+      localStorage.setItem('caratEntries', JSON.stringify(entries));
+    }
+
+    function formatDateToLocal(iso) {
+      // Return a locale-aware string in the user's local timezone
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString();
+      } catch (e) {
+        return iso;
+      }
+    }
+
+    function updateDisplay() {
+      const total = entries.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+      totalCaratsDisplay.textContent = total;
+
+      entryList.innerHTML = '';
+      if (entries.length === 0) {
+        const p = document.createElement('div');
+        p.className = 'muted';
+        p.textContent = 'No entries yet.';
+        entryList.appendChild(p);
+        return;
+      }
+
+      // Show newest first
+      entries.slice().reverse().forEach((entry, reversedIndex) => {
+        const originalIndex = entries.length - 1 - reversedIndex;
+        const div = document.createElement('div');
+        div.className = 'entry';
+
+        const left = document.createElement('div');
+        left.innerHTML = `<div><strong>${entry.amount} carats</strong></div><div class="muted">${formatDateToLocal(entry.date)}</div>`;
+
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.className = 'small secondary';
+        del.addEventListener('click', () => {
+          entries.splice(originalIndex, 1);
+          save();
+          updateDisplay();
         });
 
-        updateDisplay();
-    </script>
+        actions.appendChild(del);
+        div.appendChild(left);
+        div.appendChild(actions);
+        entryList.appendChild(div);
+      });
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const value = parseInt(caratInput.value, 10);
+      if (Number.isNaN(value) || value <= 0) return;
+      const date = new Date().toISOString();
+      entries.push({ amount: value, date });
+      save();
+      caratInput.value = '';
+      updateDisplay();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      if (!confirm('Clear all entries? This cannot be undone.')) return;
+      entries = [];
+      save();
+      updateDisplay();
+    });
+
+    // Initial render
+    updateDisplay();
+  </script>
 </body>
 </html>
